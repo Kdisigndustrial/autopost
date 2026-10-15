@@ -11,6 +11,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Usar el fetch nativo de React Native (soporta subir archivos con FormData)
+      EXPO_PUBLIC_USE_RN_FETCH: "1"
     steps:
       - uses: actions/checkout@v4
 

@@ -77,6 +77,7 @@ export async function schedulePost(opts: {
   title: string;
   caption: string;
   slot: string;
+  onProgress?: (fraction: number) => void;
 }): Promise<{ jobId?: string }> {
   if (!opts.apiKey) throw new Error('Falta la clave de Upload-Post (Ajustes).');
   if (!opts.profile) throw new Error('Falta el nombre del perfil de Upload-Post para esta marca (Ajustes).');
@@ -102,17 +103,30 @@ export async function schedulePost(opts: {
   form.append('scheduled_date', slotToISO(opts.slot));
   form.append('timezone', TIMEZONE);
 
-  const res = await fetch(`${UP_BASE}/upload`, {
-    method: 'POST',
-    headers: { Authorization: `Apikey ${opts.apiKey.trim()}` },
-    body: form,
+  // El fetch global de Expo no acepta archivos {uri,name,type} en FormData
+  // ("Unsupported FormDataPart implementation"); XMLHttpRequest sí.
+  const { status, body } = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${UP_BASE}/upload`);
+    xhr.setRequestHeader('Authorization', `Apikey ${opts.apiKey.trim()}`);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.timeout = 15 * 60 * 1000;
+    if (opts.onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) opts.onProgress!(e.loaded / e.total);
+      };
+    }
+    xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
+    xhr.onerror = () => reject(new Error('Error de red al subir el video. Revisá la conexión.'));
+    xhr.ontimeout = () => reject(new Error('La subida tardó demasiado. Probá con wifi.'));
+    xhr.send(form);
   });
   let data: any = {};
   try {
-    data = await res.json();
+    data = JSON.parse(body);
   } catch {}
-  if (!res.ok || data?.success === false) {
-    throw new Error(data?.message ?? data?.error ?? `Error de Upload-Post (${res.status})`);
+  if (status < 200 || status >= 300 || data?.success === false) {
+    throw new Error(data?.message ?? data?.error ?? `Error de Upload-Post (${status})`);
   }
   return { jobId: data.job_id };
 }

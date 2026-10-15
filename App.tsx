@@ -220,6 +220,7 @@ function NewPostScreen(props: {
   const [idx, setIdx] = useState(0);
   const [lastBrand, setLastBrand] = useState<BrandId>('navaja');
   const [busy, setBusy] = useState<'' | 'copy' | 'upload'>('');
+  const [progress, setProgress] = useState(0);
   // horarios ocupados mientras se cargan varios videos en la misma tanda
   const [localQueue, setLocalQueue] = useState<QueueItem[]>(props.queue);
 
@@ -263,6 +264,7 @@ function NewPostScreen(props: {
     if (!d) return;
     if (!d.caption.trim()) return Alert.alert('Falta el copy', 'Generalo o escribilo antes de programar.');
     setBusy('upload');
+    setProgress(0);
     try {
       const name = d.asset.fileName ?? `video-${Date.now()}.mp4`;
       const { jobId } = await schedulePost({
@@ -272,6 +274,7 @@ function NewPostScreen(props: {
         title: d.title,
         caption: d.caption,
         slot,
+        onProgress: setProgress,
       });
       const item: QueueItem = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -376,7 +379,8 @@ function NewPostScreen(props: {
             {busy === 'upload' ? (
               <View style={s.row}>
                 <ActivityIndicator color="#000" />
-                <Text style={[s.bigBtnText, { marginLeft: 10 }]}>Subiendo video…</Text>
+                <Text style={[s.bigBtnText, { marginLeft: 10 }]}>{progress > 0 && progress < 1 ? `Subiendo… ${Math.round(progress * 100)}%` : progress >= 1 ? 'Procesando…' : 'Subiendo video…'}
+                </Text>
               </View>
             ) : (
               <Text style={s.bigBtnText}>Programar</Text>

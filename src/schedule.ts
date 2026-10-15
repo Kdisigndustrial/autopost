@@ -25,26 +25,56 @@ export function slotToTime(slot: string): number {
   return Date.parse(`${slot}:00Z`) - AR_OFFSET_MIN * 60_000;
 }
 
-/** Próximo horario libre (12 o 20 hs) para esa marca, a partir de ahora */
-export function nextFreeSlot(brand: BrandId, queue: QueueItem[]): string {
-  const taken = new Set(
-    queue.filter((q) => q.brand === brand && q.status !== 'failed').map((q) => q.slot),
-  );
-  const cutoff = Date.now() + MIN_LEAD_MIN * 60_000;
+export const isSlotUpcoming = (slot: string) => slotToTime(slot) > Date.now() + MIN_LEAD_MIN * 60_000;
+
+/** Días (YYYY-MM-DD) desde hoy, hora Argentina */
+export function upcomingDays(count: number): string[] {
   const base = nowAR();
-  for (let d = 0; d < 400; d++) {
+  return Array.from({ length: count }, (_, d) => {
     const day = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + d));
-    for (const h of SLOT_HOURS) {
-      const slot = `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}T${pad(h)}:00`;
-      if (slotToTime(slot) > cutoff && !taken.has(slot)) return slot;
-    }
-  }
-  throw new Error('No hay horarios libres en el próximo año');
+    return `${day.getUTCFullYear()}-${pad(day.getUTCMonth() + 1)}-${pad(day.getUTCDate())}`;
+  });
 }
 
-const DAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+export const slotFor = (day: string, hour: number) => `${day}T${pad(hour)}:00`;
 
+export function takenSlots(brand: BrandId, queue: QueueItem[]): Set<string> {
+  return new Set(queue.filter((q) => q.brand === brand && q.status !== 'failed').map((q) => q.slot));
+}
+
+/** Próximos horarios libres (12 o 20 hs) para esa marca */
+export function freeSlots(brand: BrandId, queue: QueueItem[], count: number): string[] {
+  const taken = takenSlots(brand, queue);
+  const out: string[] = [];
+  for (const day of upcomingDays(400)) {
+    for (const h of SLOT_HOURS) {
+      const slot = slotFor(day, h);
+      if (isSlotUpcoming(slot) && !taken.has(slot)) out.push(slot);
+      if (out.length >= count) return out;
+    }
+  }
+  return out;
+}
+
+export function nextFreeSlot(brand: BrandId, queue: QueueItem[]): string {
+  const [s] = freeSlots(brand, queue, 1);
+  if (!s) throw new Error('No hay horarios libres en el próximo año');
+  return s;
+}
+
+const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** "Hoy", "Mañana" o "Vie 16 oct" */
+export function formatDay(day: string): string {
+  const [today, tomorrow] = upcomingDays(2);
+  if (day === today) return 'Hoy';
+  if (day === tomorrow) return 'Mañana';
+  const d = new Date(`${day}T00:00:00Z`);
+  return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** "Hoy, 20:00" / "Vie 16 oct, 12:00" */
 export function formatSlot(slot: string): string {
-  const d = new Date(`${slot}:00Z`);
-  return `${DAYS[d.getUTCDay()]} ${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)} · ${slot.slice(11)} hs`;
+  return `${formatDay(slot.slice(0, 10))}, ${slot.slice(11)}`;
 }

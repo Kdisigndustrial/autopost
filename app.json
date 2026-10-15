@@ -5,8 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0B0C",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#D6D8D3",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.boludo.autopost"
@@ -14,7 +14,7 @@
     "android": {
       "package": "com.boludo.autopost",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0C",
+        "backgroundColor": "#D6D8D3",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -30,7 +30,8 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }
